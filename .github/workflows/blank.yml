@@ -1,4 +1,4 @@
-name: Build Signed APK
+name: Build Signed APK (No Wrapper)
 
 on:
   push:
@@ -10,18 +10,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      # 1. 拉代码
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK
+      # 2. Java（Android 官方推荐）
+      - name: Setup JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+      # 3. 安装稳定版 Gradle（绕过 wrapper）
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
 
+      # 4. 生成临时 keystore（CI 自用）
       - name: Generate keystore
         run: |
           keytool -genkeypair \
@@ -32,17 +38,19 @@ jobs:
             -keystore auto.keystore \
             -storepass 123456 \
             -keypass 123456 \
-            -dname "CN=Auto, OU=Auto, O=Auto, L=Auto, S=Auto, C=CN"
+            -dname "CN=Auto, OU=CI, O=CI, L=CI, S=CI, C=CN"
 
-      - name: Build signed APK
+      # 5. 构建 Release APK（已签名）
+      - name: Build Release APK
         env:
           ANDROID_KEYSTORE: ${{ github.workspace }}/auto.keystore
           ANDROID_KEYSTORE_PASSWORD: 123456
           ANDROID_KEY_ALIAS: auto
           ANDROID_KEY_PASSWORD: 123456
         run: |
-          ./gradlew assembleRelease
+          gradle assembleRelease
 
+      # 6. 上传 APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
