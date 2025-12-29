@@ -1,0 +1,50 @@
+name: Build Signed APK
+
+on:
+  push:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Generate keystore
+        run: |
+          keytool -genkeypair \
+            -alias auto \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -keystore auto.keystore \
+            -storepass 123456 \
+            -keypass 123456 \
+            -dname "CN=Auto, OU=Auto, O=Auto, L=Auto, S=Auto, C=CN"
+
+      - name: Build signed APK
+        env:
+          ANDROID_KEYSTORE: ${{ github.workspace }}/auto.keystore
+          ANDROID_KEYSTORE_PASSWORD: 123456
+          ANDROID_KEY_ALIAS: auto
+          ANDROID_KEY_PASSWORD: 123456
+        run: |
+          ./gradlew assembleRelease
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-apk
+          path: app/build/outputs/apk/release/*.apk
